@@ -2,6 +2,11 @@ import streamlit as st
 import pickle
 import pandas as pd
 import requests
+import logging
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 def recommend(movie, top_n=5):
@@ -18,10 +23,6 @@ def recommend(movie, top_n=5):
 
 
 def fetch_movie_details(movie_id):
-    import logging
-    logging.basicConfig(level=logging.INFO)
-    logger = logging.getLogger(__name__)
-
     try:
         url = "https://api.themoviedb.org/3/movie/{}".format(movie_id)
         params = {
@@ -32,44 +33,49 @@ def fetch_movie_details(movie_id):
         logger.info(f"Fetching movie ID: {movie_id}")
         logger.info(f"URL: {url}")
 
-        response = requests.get(
-            url, params=params, timeout=10)  # Increase timeout
+        response = requests.get(url, params=params, timeout=10)
 
         logger.info(f"Response status: {response.status_code}")
 
         if response.status_code != 200:
             logger.error(
                 f"API Error: {response.status_code} - {response.text}")
-            raise Exception(f"TMDB API error: {response.status_code}")
+            return None
 
         data = response.json()
         logger.info(f"Successfully fetched data for movie ID: {movie_id}")
+        logger.info(f"Data keys: {data.keys()}")
 
         poster_path = data.get("poster_path")
         poster_url = (
-            f"https://image.tmdb.org/t/p/w500/{poster_path}"
-            if poster_path else None
+            f"https://image.tmdb.org/t/p/w500{poster_path}"
+            if poster_path else "https://via.placeholder.com/500x750?text=No+Poster"
         )
 
-        return {
+        movie_details = {
             "poster": poster_url,
             "overview": data.get("overview", "No description available."),
             "rating": data.get("vote_average", "N/A"),
             "release_date": data.get("release_date", "N/A"),
             "genres": ", ".join(
                 genre["name"] for genre in data.get("genres", [])
-            ),
+            ) if data.get("genres") else "N/A",
             "runtime": data.get("runtime", "N/A")
         }
+
+        logger.info(f"Movie details created: {movie_details}")
+        return movie_details
+
     except requests.exceptions.Timeout:
         logger.error(f"Timeout error for movie ID: {movie_id}")
-        raise Exception("Request timed out")
+        return None
     except requests.exceptions.RequestException as e:
         logger.error(f"Request error for movie ID {movie_id}: {str(e)}")
-        raise Exception(f"Network error: {str(e)}")
+        return None
     except Exception as e:
-        logger.error(f"Unexpected error for movie ID {movie_id}: {str(e)}")
-        raise
+        logger.error(
+            f"Unexpected error for movie ID {movie_id}: {str(e)}", exc_info=True)
+        return None
 
 
 # Page configuration
@@ -150,15 +156,23 @@ if recommend_button:
         st.markdown("---")
 
         for idx, rec in enumerate(recommendations, 1):
-            movie_id = movies[movies['title'] == rec].movie_id.values[0]
-
             try:
+                movie_id = movies[movies['title'] == rec].movie_id.values[0]
+                logger.info(
+                    f"Processing recommendation #{idx}: {rec} (ID: {movie_id})")
+
                 details = fetch_movie_details(movie_id)
+
+                if details is None:
+                    st.warning(f"⚠️ Could not load details for **{rec}**")
+                    st.markdown("---")
+                    continue
 
                 col_img, col_info = st.columns([1, 2])
 
                 with col_img:
-                    st.image(details['poster'], use_container_width=True)
+                    if details['poster']:
+                        st.image(details['poster'], use_container_width=True)
 
                 with col_info:
                     st.markdown(f"### {idx}. {rec}")
@@ -166,16 +180,25 @@ if recommend_button:
                     # Rating and basic info
                     info_col1, info_col2, info_col3 = st.columns(3)
                     with info_col1:
-                        st.markdown(f"⭐ **Rating:** {details['rating']}/10")
+                        rating_value = details['rating']
+                        if rating_value != "N/A":
+                            st.markdown(f"⭐ **Rating:** {rating_value}/10")
+                        else:
+                            st.markdown(f"⭐ **Rating:** N/A")
                     with info_col2:
-                        st.markdown(
-                            f"📅 **Released:** {details['release_date'][:4] if details['release_date'] != 'N/A' else 'N/A'}")
+                        release_date = details['release_date']
+                        year = release_date[:4] if release_date and release_date != 'N/A' and len(
+                            release_date) >= 4 else 'N/A'
+                        st.markdown(f"📅 **Released:** {year}")
                     with info_col3:
-                        st.markdown(
-                            f"⏱️ **Runtime:** {details['runtime']} min" if details['runtime'] != 'N/A' else "⏱️ **Runtime:** N/A")
+                        runtime = details['runtime']
+                        if runtime and runtime != 'N/A':
+                            st.markdown(f"⏱️ **Runtime:** {runtime} min")
+                        else:
+                            st.markdown(f"⏱️ **Runtime:** N/A")
 
                     # Genres
-                    if details['genres']:
+                    if details['genres'] and details['genres'] != 'N/A':
                         st.markdown(f"🎭 **Genres:** {details['genres']}")
 
                     # Overview
@@ -185,7 +208,9 @@ if recommend_button:
                 st.markdown("---")
 
             except Exception as e:
-                st.error(f"Could not load details for {rec}")
+                logger.error(
+                    f"Error displaying {rec}: {str(e)}", exc_info=True)
+                st.error(f"Could not load details for **{rec}**: {str(e)}")
                 st.markdown("---")
 
 # Footer
