@@ -144,7 +144,7 @@ with col2:
     num_recommendations = st.slider('Number of recommendations:', 3, 10, 5)
 
     recommend_button = st.button(
-        '🎯 Get Recommendations', use_container_width=True)
+        '🎯 Get Recommendations', use_container_width=False)
 
 # Display recommendations
 if recommend_button:
@@ -172,7 +172,7 @@ if recommend_button:
 
                 with col_img:
                     if details['poster']:
-                        st.image(details['poster'], use_container_width=True)
+                        st.image(details['poster'], use_column_width=True)
 
                 with col_info:
                     st.markdown(f"### {idx}. {rec}")
