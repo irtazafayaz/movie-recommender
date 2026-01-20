@@ -18,35 +18,58 @@ def recommend(movie, top_n=5):
 
 
 def fetch_movie_details(movie_id):
-    url = "https://api.themoviedb.org/3/movie/{}".format(movie_id)
-    params = {
-        "api_key": "870fea2ca635981ef59ec080f30ef0be",
-        "language": "en-US"
-    }
+    import logging
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(__name__)
 
-    response = requests.get(url, params=params, timeout=5)
+    try:
+        url = "https://api.themoviedb.org/3/movie/{}".format(movie_id)
+        params = {
+            "api_key": "870fea2ca635981ef59ec080f30ef0be",
+            "language": "en-US"
+        }
 
-    if response.status_code != 200:
-        raise Exception("TMDB API error")
+        logger.info(f"Fetching movie ID: {movie_id}")
+        logger.info(f"URL: {url}")
 
-    data = response.json()
+        response = requests.get(
+            url, params=params, timeout=10)  # Increase timeout
 
-    poster_path = data.get("poster_path")
-    poster_url = (
-        f"https://image.tmdb.org/t/p/w500/{poster_path}"
-        if poster_path else None
-    )
+        logger.info(f"Response status: {response.status_code}")
 
-    return {
-        "poster": poster_url,
-        "overview": data.get("overview", "No description available."),
-        "rating": data.get("vote_average", "N/A"),
-        "release_date": data.get("release_date", "N/A"),
-        "genres": ", ".join(
-            genre["name"] for genre in data.get("genres", [])
-        ),
-        "runtime": data.get("runtime", "N/A")
-    }
+        if response.status_code != 200:
+            logger.error(
+                f"API Error: {response.status_code} - {response.text}")
+            raise Exception(f"TMDB API error: {response.status_code}")
+
+        data = response.json()
+        logger.info(f"Successfully fetched data for movie ID: {movie_id}")
+
+        poster_path = data.get("poster_path")
+        poster_url = (
+            f"https://image.tmdb.org/t/p/w500/{poster_path}"
+            if poster_path else None
+        )
+
+        return {
+            "poster": poster_url,
+            "overview": data.get("overview", "No description available."),
+            "rating": data.get("vote_average", "N/A"),
+            "release_date": data.get("release_date", "N/A"),
+            "genres": ", ".join(
+                genre["name"] for genre in data.get("genres", [])
+            ),
+            "runtime": data.get("runtime", "N/A")
+        }
+    except requests.exceptions.Timeout:
+        logger.error(f"Timeout error for movie ID: {movie_id}")
+        raise Exception("Request timed out")
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Request error for movie ID {movie_id}: {str(e)}")
+        raise Exception(f"Network error: {str(e)}")
+    except Exception as e:
+        logger.error(f"Unexpected error for movie ID {movie_id}: {str(e)}")
+        raise
 
 
 # Page configuration
