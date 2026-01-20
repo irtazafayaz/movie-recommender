@@ -18,19 +18,35 @@ def recommend(movie, top_n=5):
 
 
 def fetch_movie_details(movie_id):
-    url = f"https://api.themoviedb.org/3/movie/{movie_id}?api_key=870fea2ca635981ef59ec080f30ef0be&language=en-US"
-    response = requests.get(url)
+    url = "https://api.themoviedb.org/3/movie/{}".format(movie_id)
+    params = {
+        "api_key": "870fea2ca635981ef59ec080f30ef0be",
+        "language": "en-US"
+    }
+
+    response = requests.get(url, params=params, timeout=5)
+
+    if response.status_code != 200:
+        raise Exception("TMDB API error")
+
     data = response.json()
 
-    movie_details = {
-        'poster': "https://image.tmdb.org/t/p/w500/" + data.get('poster_path', ''),
-        'overview': data.get('overview', 'No description available.'),
-        'rating': data.get('vote_average', 'N/A'),
-        'release_date': data.get('release_date', 'N/A'),
-        'genres': ', '.join([genre['name'] for genre in data.get('genres', [])]),
-        'runtime': data.get('runtime', 'N/A')
+    poster_path = data.get("poster_path")
+    poster_url = (
+        f"https://image.tmdb.org/t/p/w500/{poster_path}"
+        if poster_path else None
+    )
+
+    return {
+        "poster": poster_url,
+        "overview": data.get("overview", "No description available."),
+        "rating": data.get("vote_average", "N/A"),
+        "release_date": data.get("release_date", "N/A"),
+        "genres": ", ".join(
+            genre["name"] for genre in data.get("genres", [])
+        ),
+        "runtime": data.get("runtime", "N/A")
     }
-    return movie_details
 
 
 # Page configuration
