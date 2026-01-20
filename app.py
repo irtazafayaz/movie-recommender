@@ -34,7 +34,7 @@ def fetch_movie_details(movie_id):
     try:
         url = "https://api.themoviedb.org/3/movie/{}".format(movie_id)
         params = {
-            "api_key": "870fea2ca635981ef59ec080f30ef0be",
+            "api_key": TMDB_API_KEY,
             "language": "en-US"
         }
 
