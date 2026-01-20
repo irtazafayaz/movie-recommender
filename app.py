@@ -3,6 +3,14 @@ import pickle
 import pandas as pd
 import requests
 import logging
+import os
+
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+
+TMDB_API_KEY = os.environ.get('TMDB_API_KEY')
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
